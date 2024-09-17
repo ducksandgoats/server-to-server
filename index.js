@@ -35,7 +35,7 @@ export default class Server extends EventEmitter {
 
         const self = this
         
-        this.test = '0'
+        // this.test = '0'
         // this.offer = null
         this.limit = typeof(opts.limit) === 'object' && !Array.isArray(opts.limit) ? opts.limit : {}
         this.timer = typeof(opts.timer) === 'object' && !Array.isArray(opts.timer) ? opts.timer : {}
@@ -44,8 +44,6 @@ export default class Server extends EventEmitter {
         this.http = null
         this.ws = null
         this.domain = opts.domain
-        this.timer.inactive = this.timer.inactive || 1 * 60 * 1000
-        this.timer.active = this.timer.active || 5 * 60 * 1000
         this.server = opts.server || '0.0.0.0'
         if(!opts.host){
           throw new Error('must have host')
