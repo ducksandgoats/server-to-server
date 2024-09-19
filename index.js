@@ -299,31 +299,6 @@ export default class Server extends EventEmitter {
             return
           }
         }
-        this.check = setInterval(() => {
-          for(const test in this.servers.values()){
-            if(!test.active){
-              test.terminate()
-              continue
-            } else {
-              test.active = false
-              test.send(JSON.stringify({action: 'ping'}))
-            }
-          }
-          for(const test in this.clients.values()){
-            // if(!test.active){
-            //   test.terminate()
-            //   continue
-            // } else {
-            //   test.active = false
-            //   test.send(JSON.stringify({action: 'ping'}))
-            // }
-            if(test.stamp){
-              if((Date.now() - test.stamp) > 60000){
-                test.close()
-              }
-            }
-          }
-        }, 300000)
         if(opts.init){
           this.start(opts.relay)
         }
