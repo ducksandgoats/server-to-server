@@ -74,7 +74,7 @@ export default class Server extends EventEmitter {
         }
         this.http.onRequest = (req, res) => {
           if(this.dev){
-            console.log('http req', req)
+            console.log('http req', req.url)
           }
           if(req.method === 'HEAD' && req.url === '/'){
             res.statusCode = 200
@@ -118,15 +118,15 @@ export default class Server extends EventEmitter {
           this.emit('error', err)
         }
         this.ws.onConnection = (socket, req) => {
-          if(this.dev){
-            console.log(req)
-          }
           // Note: socket.upgradeReq was removed in ws@3.0.0, so re-add it.
           // https://github.com/websockets/ws/pull/1099
     
           // if resource usage is high, send only the url of another tracker
           // else handle websockets as usual
           const test = new URL(req.url)
+          if(this.dev){
+            console.log('ws connection', test)
+          }
           if(test.pathname === '/signal'){
             const hasHash = test.searchParams.has('hash')
             const hasId = test.searchParams.has('id')
@@ -320,7 +320,7 @@ export default class Server extends EventEmitter {
         try {
           data = JSON.parse(data.toString('utf-8'))
           if(this.dev){
-            console.log(data)
+            console.log('ws client message', data)
           }
           // if(message.action === 'pong'){
           //   socket.active = true
@@ -430,7 +430,7 @@ export default class Server extends EventEmitter {
         try {
           data = JSON.parse(data.toString('utf-8'))
           if(this.dev){
-            console.log(data)
+            console.log('ws server message', data)
           }
           if(data.action === 'session'){
             if(this.relays.has(data.id) || socket.relay !== data.relay || data.id !== crypto.createHash('sha1').update(data.address).digest('hex')){
