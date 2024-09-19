@@ -584,7 +584,28 @@ export default class Server extends EventEmitter {
         }
       }
     }
-    start(relay = false){
+    start(){
+      this.relay.on('listening', this.relay.onListening)
+      this.relay.on('ready', this.relay.onReady)
+      this.relay.on('peer', this.relay.onPeer)
+      this.relay.on('error', this.relay.onError)
+      this.relay.on('close', this.relay.onClose)
+      if(this.useRelay){
+        if(!this.relay.listening){
+          this.relay.listen(this.port, this.server)
+        }
+      }
+      this.http.on('listening', this.http.onListening)
+      this.http.on('request', this.http.onRequest)
+      this.http.on('error', this.http.onError)
+      this.http.on('close', this.http.onClose)
+      this.ws.on('listening', this.ws.onListening)
+      this.ws.on('connection', this.ws.onConnection)
+      this.ws.on('error', this.ws.onError)
+      this.ws.on('close', this.ws.onClose)
+      if(!this.http.listening){
+        this.http.listen(this.port, this.server)
+      }
       if(!this.check){
         this.check = setInterval(() => {
           for(const test in this.servers.values()){
@@ -612,27 +633,30 @@ export default class Server extends EventEmitter {
           }
         }, 300000)
       }
-      if(!this.http.listening){
-        this.http.listen(this.port, this.server)
-      }
-      if(relay){
-        if(!this.relay.listening){
-          this.relay.listen(this.port, this.server)
-        }
-      }
     }
-    stop(relay = false){
+    stop(){
+      this.http.off('listening', this.http.onListening)
+      this.http.off('request', this.http.onRequest)
+      this.http.off('error', this.http.onError)
+      this.http.off('close', this.http.onClose)
+      this.ws.off('listening', this.ws.onListening)
+      this.ws.off('connection', this.ws.onConnection)
+      this.ws.off('error', this.ws.onError)
+      this.ws.off('close', this.ws.onClose)
       // delete this.ws
       if(this.http.listening){
         this.http.close()
       }
-      if(relay){
+      this.relay.off('listening', this.relay.onListening)
+      this.relay.off('ready', this.relay.onReady)
+      this.relay.off('peer', this.relay.onPeer)
+      this.relay.off('error', this.relay.onError)
+      this.relay.off('close', this.relay.onClose)
+      if(this.useRelay){
         if(this.relay.listening){
           this.relay.destroy()
         }
       }
-      // delete this.relay
-      // delete this.http
       if(this.check){
         clearInterval(this.check)
       }
