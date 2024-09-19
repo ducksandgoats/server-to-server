@@ -597,13 +597,13 @@ export default class Server extends EventEmitter {
       this.http.on('request', this.http.onRequest)
       this.http.on('error', this.http.onError)
       this.http.on('close', this.http.onClose)
+      if(!this.http.listening){
+        this.http.listen(this.port, this.server)
+      }
       this.ws.on('listening', this.ws.onListening)
       this.ws.on('connection', this.ws.onConnection)
       this.ws.on('error', this.ws.onError)
       this.ws.on('close', this.ws.onClose)
-      if(!this.http.listening){
-        this.http.listen(this.port, this.server)
-      }
       if(!this.check){
         this.check = setInterval(() => {
           for(const test in this.servers.values()){
@@ -637,14 +637,14 @@ export default class Server extends EventEmitter {
       this.http.off('request', this.http.onRequest)
       this.http.off('error', this.http.onError)
       this.http.off('close', this.http.onClose)
+      if(this.http.listening){
+        this.http.close()
+      }
       this.ws.off('listening', this.ws.onListening)
       this.ws.off('connection', this.ws.onConnection)
       this.ws.off('error', this.ws.onError)
       this.ws.off('close', this.ws.onClose)
       // delete this.ws
-      if(this.http.listening){
-        this.http.close()
-      }
       this.relay.off('listening', this.relay.onListening)
       this.relay.off('ready', this.relay.onReady)
       this.relay.off('peer', this.relay.onPeer)
