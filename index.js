@@ -37,6 +37,8 @@ export default class Server extends EventEmitter {
         // this.test = '0'
         // this.offer = null
         this.dev = Boolean(opts.dev)
+        this.useInit = opts.init === false ? opts.init : true
+        this.useRelay = opts.relay === true ? opts.relay : false
         this.limit = typeof(opts.limit) === 'object' && !Array.isArray(opts.limit) ? opts.limit : {}
         this.limit.serverConnections = this.limit.serverConnections || 0
         this.limit.clientConnections = this.limit.clientConnections || 0
@@ -299,8 +301,8 @@ export default class Server extends EventEmitter {
             return
           }
         }
-        if(opts.init){
-          this.start(opts.relay)
+        if(this.useInit){
+          this.start(this.useRelay)
         }
     }
 
