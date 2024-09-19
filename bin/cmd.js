@@ -2,7 +2,6 @@
 
 import minimist from 'minimist'
 import Server from '../index.js'
-import path from 'path'
 
 const argv = minimist(process.argv.slice(2), {
   alias: {
