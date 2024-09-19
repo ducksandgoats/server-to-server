@@ -80,7 +80,7 @@ if (argv.help) {
 //   domain: argv['domain']
 // })
 
-const server = new Server({hashes: argv['hashes'].split(',').filter(Boolean)})
+const server = new Server({hashes: argv['hashes'].split(',').filter(Boolean), host: argv['host']})
 
 server.on('listening', (which) => {
   console.log('listening', which)
