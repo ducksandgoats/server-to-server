@@ -210,9 +210,7 @@ export default class Server extends EventEmitter {
           this.emit('start', 'dht')
         }
         this.relay.onReady = () => {
-          if(this.dev){
-            console.log('dht is ready')
-          }
+          this.emit('ev', 'dht is ready')
         }
         this.relay.onError = (err) => {
           this.emit('error', err)
