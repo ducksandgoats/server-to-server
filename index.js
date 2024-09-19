@@ -16,13 +16,12 @@ import crypto from 'crypto'
  * @param {String}  opts.host     host used for server
  * @param {Number}  opts.port     port used for server
  * @param {String}  opts.domain     domain name that will be used
- * @param {Boolean}  opts.trustProxy     trust 'x-forwarded-for' header from reverse proxy
  * @param {Array|String}  opts.hashes     join the relays for these hashes, array of hashes or comma separated string of hashes
  * @param {Object} opts.limit       limit the connections of the relay and the hashes
- * @param {Number}  opts.peersCacheLength    max amount of elements in cache, default is 1000
- * @param {Number}  opts.peersCacheTtl    max amount of time to hold elements in cache, default is 20 minutes
  * @param {Boolean}  opts.init    automatically start once instantiated
  * @param {Boolean}  opts.relay    if automatically started, this also start the dht listener for connections
+ * @param {String}  opts.server    ip of the server
+ * @param {Boolean}  opts.ws    options for WebSocket Server
  */
 
 // * @param {Function}  opts.extendRelay    have custom capabilities
@@ -37,8 +36,8 @@ export default class Server extends EventEmitter {
         
         // this.test = '0'
         // this.offer = null
+        this.dev = Boolean(opts.dev)
         this.limit = typeof(opts.limit) === 'object' && !Array.isArray(opts.limit) ? opts.limit : {}
-        this.timer = typeof(opts.timer) === 'object' && !Array.isArray(opts.timer) ? opts.timer : {}
         this.limit.serverConnections = this.limit.serverConnections || 0
         this.limit.clientConnections = this.limit.clientConnections || 0
         this.http = null
@@ -68,15 +67,13 @@ export default class Server extends EventEmitter {
           this.emit('error', err)
         }
         this.http.onListening = () => {
-          this.clients.forEach((data) => {
-            data.send(JSON.stringify({action: 'relay', relay: this.randomRelay(data.hash)}))
-            data.close()
-          })
           this.servers.forEach((soc) => {soc.send(JSON.stringify({action: 'on'}))})
           this.emit('start', 'http')
         }
         this.http.onRequest = (req, res) => {
-          // if (res.headersSent) return
+          if(this.dev){
+            console.log('http req', req)
+          }
           if(req.method === 'HEAD' && req.url === '/'){
             res.statusCode = 200
             res.end()
@@ -91,10 +88,14 @@ export default class Server extends EventEmitter {
           }
         }
         this.http.onClose = () => {
-          setTimeout(() => {this.http.listen(this.port, this.host)}, 300000)
+          this.clients.forEach((data) => {
+            data.send(JSON.stringify({action: 'relay', relay: this.randomRelay(data.hash)}))
+            data.close()
+          })
           this.servers.forEach((data) => {data.send(JSON.stringify({action: 'off'}))})
           this.triedAlready.clear()
           this.emit('stop', 'http')
+          setTimeout(() => {this.http.listen(this.port, this.host)}, 300000)
         }
         // this.http.handleListeners = () => {
         //   this.http.off('error', this.http.onError)
@@ -115,6 +116,9 @@ export default class Server extends EventEmitter {
           this.emit('error', err)
         }
         this.ws.onConnection = (socket, req) => {
+          if(this.dev){
+            console.log(req)
+          }
           // Note: socket.upgradeReq was removed in ws@3.0.0, so re-add it.
           // https://github.com/websockets/ws/pull/1099
     
@@ -166,7 +170,6 @@ export default class Server extends EventEmitter {
                     socket.active = true
                     socket.relay = relay
                     socket.relays = []
-                    socket.proc = false
                     this.servers.set(socket.id, socket)
                     socket.send(JSON.stringify({id: this.id, address: this.address, web: this.web, host: this.host, port: this.port, domain: this.domain, relay: hash, action: 'session'}))
                     this.onServerConnection(socket)
@@ -180,7 +183,6 @@ export default class Server extends EventEmitter {
                   socket.relay = relay
                   socket.relays = []
                   socket.active = true
-                  socket.proc = false
                   this.servers.set(socket.id, socket)
                   socket.send(JSON.stringify({id: this.id, address: this.address, web: this.web, host: this.host, port: this.port, domain: this.domain, relay: hash, action: 'session'}))
                   this.onServerConnection(socket)
@@ -206,7 +208,9 @@ export default class Server extends EventEmitter {
           this.emit('start', 'dht')
         }
         this.relay.onReady = () => {
-          this.emit('ready', 'dht')
+          if(this.dev){
+            console.log('dht is ready')
+          }
         }
         this.relay.onError = (err) => {
           this.emit('error', err)
@@ -218,6 +222,10 @@ export default class Server extends EventEmitter {
           // if not connected, then connect socket
           // share resource details on websocket
           const ih = infoHash.toString('hex')
+
+          if(this.dev){
+            console.log(peer, ih, from)
+          }
     
           if(!this.relays.has(ih)){
             return
@@ -273,7 +281,6 @@ export default class Server extends EventEmitter {
               con.active = true
               con.relay = ih
               con.relays = []
-              con.proc = false
               con.id = id
               this.servers.set(con.id, con)
               self.onServerConnection(con)
@@ -286,7 +293,6 @@ export default class Server extends EventEmitter {
             con.active = true
             con.relay = ih
             con.relays = []
-            con.proc = false
             con.id = id
             this.servers.set(con.id, con)
             self.onServerConnection(con)
@@ -338,6 +344,9 @@ export default class Server extends EventEmitter {
       socket.onMessage = (data, buffer) => {
         try {
           data = JSON.parse(data.toString('utf-8'))
+          if(this.dev){
+            console.log(data)
+          }
           // if(message.action === 'pong'){
           //   socket.active = true
           // }
@@ -445,6 +454,9 @@ export default class Server extends EventEmitter {
         // send the right data
         try {
           data = JSON.parse(data.toString('utf-8'))
+          if(this.dev){
+            console.log(data)
+          }
           if(data.action === 'session'){
             if(this.relays.has(data.id) || socket.relay !== data.relay || data.id !== crypto.createHash('sha1').update(data.address).digest('hex')){
               socket.close()
@@ -549,8 +561,8 @@ export default class Server extends EventEmitter {
         }
   
         if(socket.id){
-          if(this.sockets.has(socket.id)){
-            this.sockets.delete(socket.id)
+          if(this.servers.has(socket.id)){
+            this.servers.delete(socket.id)
           }
         }
   
@@ -595,7 +607,34 @@ export default class Server extends EventEmitter {
         }
       }
     }
-    start(relay){
+    start(relay = false){
+      if(!this.check){
+        this.check = setInterval(() => {
+          for(const test in this.servers.values()){
+            if(!test.active){
+              test.terminate()
+              continue
+            } else {
+              test.active = false
+              test.send(JSON.stringify({action: 'ping'}))
+            }
+          }
+          for(const test in this.clients.values()){
+            // if(!test.active){
+            //   test.terminate()
+            //   continue
+            // } else {
+            //   test.active = false
+            //   test.send(JSON.stringify({action: 'ping'}))
+            // }
+            if(test.stamp){
+              if((Date.now() - test.stamp) > 60000){
+                test.close()
+              }
+            }
+          }
+        }, 300000)
+      }
       if(!this.http.listening){
         this.http.listen(this.port, this.server)
       }
@@ -605,19 +644,22 @@ export default class Server extends EventEmitter {
         }
       }
     }
-    stop(relay){
-      delete this.ws
+    stop(relay = false){
+      // delete this.ws
+      if(this.http.listening){
+        this.http.close()
+      }
       if(relay){
         if(this.relay.listening){
           this.relay.destroy()
         }
       }
-      delete this.relay
-      if(this.http.listening){
-        this.http.close()
+      // delete this.relay
+      // delete this.http
+      if(this.check){
+        clearInterval(this.check)
       }
-      delete this.http
-      clearInterval(this.check)
+      this.check = null
     }
     randomRelay(hash){
       const test = this.relays.get(crypto.createHash('sha1').update(hash).digest('hex')).filter((e) => {return e.session && e.web})

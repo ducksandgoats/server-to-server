@@ -3,7 +3,6 @@
 import minimist from 'minimist'
 import Server from '../index.js'
 import path from 'path'
-import fs from 'fs'
 
 const argv = minimist(process.argv.slice(2), {
   alias: {
@@ -12,39 +11,24 @@ const argv = minimist(process.argv.slice(2), {
   },
   boolean: [
     'help',
-    // 'turnon',
-    // 'turnoff',
-    'trust-proxy',
     'version',
-    'ev',
-    'status'
+    'ev'
   ],
   string: [
     'domain',
     'host',
     'hashes',
-    'pub',
-    'priv',
-    'index',
-    'pub',
-    'priv',
     'server'
   ],
   default: {
     'port': 10509,
-    'host': '0.0.0.0',
-    'domain': '',
-    'trust-proxy': null,
-    'auth': true,
-    'dir': path.join(process.cwd(), 'data'),
+    'server': '0.0.0.0',
     'hashes': '',
-    'user': {},
     'init': true,
-    'timer': {},
+    'relay': true,
     'limit': {},
     'ev': false,
-    'status': true,
-    'server': '0.0.0.0'
+    'host': '0.0.0.0'
   }
 })
 
@@ -83,29 +67,21 @@ if (argv.help) {
   process.exit(0)
 }
 
-if(!fs.existsSync(argv['dir'])){
-  fs.mkdirSync(argv['dir'], {recursive: true})
-}
+// const server = new Server({
+//   domain: argv['domain'],
+//   auth: argv['auth'],
+//   dir: argv['dir'],
+//   host: argv['host'],
+//   port: argv['port'],
+//   hashes: argv['hashes'].split(',').filter(Boolean),
+//   user: argv['user'],
+//   index: argv['index'],
+//   init: argv['init'],
+//   stats: argv['stats'],
+//   domain: argv['domain']
+// })
 
-if(argv['pub'] && argv['priv']){
-  argv['user'] = {pub: argv['pub'], priv: argv['priv']}
-}
-
-const server = new Server({
-  timer: argv['timer'],
-  trustProxy: argv['trust-proxy'],
-  domain: argv['domain'],
-  auth: argv['auth'],
-  dir: argv['dir'],
-  host: argv['host'],
-  port: argv['port'],
-  hashes: argv['hashes'].split(',').filter(Boolean),
-  user: argv['user'],
-  index: argv['index'],
-  init: argv['init'],
-  stats: argv['stats'],
-  domain: argv['domain']
-})
+const server = new Server({hashes: argv['hashes'].split(',').filter(Boolean)})
 
 server.on('listening', (which) => {
   console.log('listening', which)
