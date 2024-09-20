@@ -123,19 +123,19 @@ export default class Server extends EventEmitter {
     
           // if resource usage is high, send only the url of another tracker
           // else handle websockets as usual
-          const test = new URL(req.url)
           if(this.dev){
-            console.log('ws connection', test)
+            console.log('ws connection', req.url)
           }
-          if(test.pathname === '/signal'){
-            const hasHash = test.searchParams.has('hash')
-            const hasId = test.searchParams.has('id')
+          if(req.url.startsWith('/signal?')){
+            const test = new URLSearchParams(req.url.slice(req.url.indexOf('?')))
+            const hasHash = test.has('hash')
+            const hasId = test.has('id')
             if(!hasHash || !hasId){
               socket.send(JSON.stringify({action: 'error', error: 'must have hash, id, and want url params'}))
               socket.close()
             } else {
-              const hash = test.searchParams.get('hash')
-              const id = test.searchParams.get('id')
+              const hash = test.get('hash')
+              const id = test.get('id')
               const checkWant = Number(test.searchParams.get('want'))
               const want = isNaN(checkWant) ? 3 : (checkWant) && (checkWant < 1 || checkWant > 6) ? 3 : Math.floor(checkWant)
               if(!this.hashes.has(hash) || this.clients.has(id)){
@@ -152,15 +152,16 @@ export default class Server extends EventEmitter {
                 this.onClientConnection(socket)
               }
             }
-          } else if(test.pathname === '/relay'){
-            const hasHash = test.searchParams.has('hash')
-            const hasId = test.searchParams.has('id')
+          } else if(req.url.startsWith('/relay?')){
+            const test = new URLSearchParams(req.url.slice(req.url.indexOf('?')))
+            const hasHash = test.has('hash')
+            const hasId = test.has('id')
             if(!hasHash || !hasId){
               socket.send(JSON.stringify({action: 'error', error: 'must have hash and id url params'}))
               socket.close()
             } else {
-              const relay = test.searchParams.get('hash')
-              const id = test.searchParams.get('id')
+              const relay = test.get('hash')
+              const id = test.get('id')
               if(!this.relays.has(relay) || this.servers.has(id)){
                 socket.send(JSON.stringify({action: 'error', error: 'must have hash and id url params'}))
                 socket.close()
