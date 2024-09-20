@@ -136,7 +136,7 @@ export default class Server extends EventEmitter {
             } else {
               const hash = test.get('hash')
               const id = test.get('id')
-              const checkWant = Number(test.searchParams.get('want'))
+              const checkWant = Number(test.get('want'))
               const want = isNaN(checkWant) ? 3 : (checkWant) && (checkWant < 1 || checkWant > 6) ? 3 : Math.floor(checkWant)
               if(!this.hashes.has(hash) || this.clients.has(id)){
                 socket.send(JSON.stringify({action: 'error', error: 'must have hash, id, and want url params'}))
