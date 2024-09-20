@@ -593,14 +593,14 @@ export default class Server extends EventEmitter {
           this.relay.listen(this.port, this.server)
         }
       }
-      this.http.on('listening', this.http.onListening)
-      this.http.on('request', this.http.onRequest)
-      this.http.on('error', this.http.onError)
-      this.http.on('close', this.http.onClose)
       this.ws.on('listening', this.ws.onListening)
       this.ws.on('connection', this.ws.onConnection)
       this.ws.on('error', this.ws.onError)
       this.ws.on('close', this.ws.onClose)
+      this.http.on('listening', this.http.onListening)
+      this.http.on('request', this.http.onRequest)
+      this.http.on('error', this.http.onError)
+      this.http.on('close', this.http.onClose)
       if(!this.http.listening){
         this.http.listen(this.port, this.server)
       }
@@ -633,14 +633,14 @@ export default class Server extends EventEmitter {
       }
     }
     stop(){
-      this.http.off('listening', this.http.onListening)
-      this.http.off('request', this.http.onRequest)
-      this.http.off('error', this.http.onError)
-      this.http.off('close', this.http.onClose)
       this.ws.off('listening', this.ws.onListening)
       this.ws.off('connection', this.ws.onConnection)
       this.ws.off('error', this.ws.onError)
       this.ws.off('close', this.ws.onClose)
+      this.http.off('listening', this.http.onListening)
+      this.http.off('request', this.http.onRequest)
+      this.http.off('error', this.http.onError)
+      this.http.off('close', this.http.onClose)
       if(this.http.listening){
         this.http.close()
       }
