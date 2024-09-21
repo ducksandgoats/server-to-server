@@ -377,6 +377,7 @@ export default class Server extends EventEmitter {
       }
 
       socket.onClose = (code, reason) => {
+        socket.onHandle()
         socket.ids.forEach((id) => {
           if(this.clients.has(id)){
             const matched = this.clients.get(id)
@@ -393,6 +394,16 @@ export default class Server extends EventEmitter {
         this.clients.delete(socket.id)
         this.emit('ev', `code: ${code} reason: ${reason.toString()}`)
       }
+
+      socket.onHandle = () => {
+        socket.off('message', socket.onMessage)
+        socket.off('error', socket.onError)
+        socket.off('close', socket.onClose)
+      }
+
+      socket.on('message', socket.onMessage)
+      socket.on('error', socket.onError)
+      socket.on('close', socket.onClose)
 
       this.sessionOffers(socket, this.matchOffers(socket))
     }
@@ -547,12 +558,14 @@ export default class Server extends EventEmitter {
   
         this.emit('ev', `code: ${code} reason: ${reason.toString()}`)
       }
+
       socket.handleListeners = () => {
         socket.off('open', socket.onOpen)
         socket.off('error', socket.onError)
         socket.off('message', socket.onMessage)
         socket.off('close', socket.onClose)
       }
+      
       socket.on('open', socket.onOpen)
       socket.on('error', socket.onError)
       socket.on('message', socket.onMessage)
@@ -628,12 +641,18 @@ export default class Server extends EventEmitter {
             //   test.send(JSON.stringify({action: 'ping'}))
             // }
             if(test.stamp){
-              if((Date.now() - test.stamp) > 60000){
+              if((Date.now() - test.stamp) > 30000){
                 test.close()
               }
             }
           }
-        }, 300000)
+        }, 60000)
+      }
+
+      this.talk()
+
+      if(!this.talking){
+        this.talking = setInterval(() => {this.talk()}, 1800000)
       }
     }
     stop(){
@@ -660,8 +679,34 @@ export default class Server extends EventEmitter {
       }
       if(this.check){
         clearInterval(this.check)
+        this.check = null
       }
-      this.check = null
+      if(this.talking){
+        clearInterval(this.talking)
+        this.talking = null
+      }
+    }
+    talk(){
+      for(const test of this.relays.keys()){
+        if(this.limit.serverConnections && this.relays.get(test).size >= this.limit.serverConnections){
+          continue
+        } else {
+          this.relay.lookup(test, (err, num) => {
+            if(err){
+              this.emit('error', err)
+            } else {
+              this.emit('ev', `${test}: ${num}`)
+            }
+          })
+          this.relay.announce(test, this.port, (err) => {
+            if(err){
+              this.emit('error', err)
+            } else {
+              this.emit('ev', `announced: ${test}`)
+            }
+          })
+        }
+      }
     }
     randomRelay(hash){
       const test = this.relays.get(crypto.createHash('sha1').update(hash).digest('hex')).filter((e) => {return e.session && e.web})
