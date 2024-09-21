@@ -378,6 +378,12 @@ export default class Server extends EventEmitter {
 
       socket.onClose = (code, reason) => {
         socket.onHandle()
+        if(this.offers.has(socket.hash)){
+          const testing = this.offers.get(socket.hash)
+          if(testing.has(socket.id)){
+            testing.delete(socket.id)
+          }
+        }
         socket.ids.forEach((id) => {
           if(this.clients.has(id)){
             const matched = this.clients.get(id)
