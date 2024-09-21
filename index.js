@@ -384,7 +384,7 @@ export default class Server extends EventEmitter {
             matched.send(JSON.stringify({action: 'interrupt', id: socket.id}))
             matched.ids.delete(socket.id)
             if(this.offers.has(matched.hash)){
-              const matching = this.offers.get(matched.id)
+              const matching = this.offers.get(matched.hash)
               if(!matching.has(matched.id)){
                 matching.add(matched.id)
               }
