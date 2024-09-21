@@ -367,13 +367,13 @@ export default class Server extends EventEmitter {
             }
           }
         } catch (err) {
-          this.emit('ev', err.message)
+          this.emit('error', err)
           socket.close()
         }
       }
 
       socket.onError = (err) => {
-        this.emit('ev', err.message)
+        this.emit('error', err)
       }
 
       socket.onClose = (code, reason) => {
@@ -390,7 +390,8 @@ export default class Server extends EventEmitter {
             }
           }
         })
-        this.emit('ev', code + ': ' + reason.toString())
+        this.clients.delete(socket.id)
+        this.emit('ev', `code: ${code} reason: ${reason.toString()}`)
       }
 
       this.sessionOffers(socket, this.matchOffers(socket))
@@ -423,7 +424,8 @@ export default class Server extends EventEmitter {
         } else {
           useSocket = 'socket'
         }
-        this.emit('ev', useSocket + ' had an error, will wait and try to connect later, ' + err.message)
+        err.msg = useSocket + ' had an error, will wait and try to connect later'
+        this.emit('error', err)
       }
       socket.onMessage = (data, buffer) => {
         // do limit check
@@ -517,7 +519,8 @@ export default class Server extends EventEmitter {
             }
           }
         } catch (err) {
-          this.emit('ev', socket.id || 'socket' + ' had an error, will wait and try to connect later, ' + err.message)
+          err.msg = socket.id || 'socket' + ' had an error, will wait and try to connect later'
+          this.emit('error', err)
           socket.close()
         }
       }
@@ -542,7 +545,7 @@ export default class Server extends EventEmitter {
           }
         }
   
-        this.emit('ev', code + ': ' + reason.toString())
+        this.emit('ev', `code: ${code} reason: ${reason.toString()}`)
       }
       socket.handleListeners = () => {
         socket.off('open', socket.onOpen)
