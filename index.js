@@ -62,7 +62,8 @@ export default class Server extends EventEmitter {
         }
         this.hashes = new Set(opts.hashes)
         this.relays = new Map((() => {const test = [];this.hashes.forEach((data) => {test.push([crypto.createHash('sha1').update(data).digest('hex'), []])});return test;})())
-        this.offers = new Map((() => {const test = [];this.hashes.forEach((data) => {test.push([data, new Set()])});return test;})())
+        // this.offers = new Map((() => {const test = [];this.hashes.forEach((data) => {test.push([data, new Set()])});return test;})())
+        this.offers = (() => {const test = {};this.hashes.forEach((data) => {test[data] = new Map()});return test;})()
 
         this.http = http.createServer()
         this.http.onError = (err) => {
@@ -131,23 +132,23 @@ export default class Server extends EventEmitter {
             const hasHash = test.has('hash')
             const hasId = test.has('id')
             if(!hasHash || !hasId){
-              socket.send(JSON.stringify({action: 'error', error: 'must have hash, id, and want url params'}))
+              socket.send(JSON.stringify({action: 'error', error: 'must have hash and id url params'}))
               socket.close()
             } else {
               const hash = test.get('hash')
               const id = test.get('id')
-              const checkWant = Number(test.get('want'))
-              const want = isNaN(checkWant) ? 3 : (checkWant) && (checkWant < 1 || checkWant > 6) ? 3 : Math.floor(checkWant)
               if(!this.hashes.has(hash) || this.clients.has(id)){
-                socket.send(JSON.stringify({action: 'error', error: 'must have hash, id, and want url params'}))
+                socket.send(JSON.stringify({action: 'error', error: 'must have hash and url params'}))
                 socket.close()
               } else {
                 socket.hash = hash
                 socket.id = id
-                socket.want = want
+                socket.wait = 1
+                socket.stamp = Date.now()
                 socket.active = true
                 socket.ids = new Set()
                 socket.web = new Set()
+                socket.offers = new Set()
                 this.clients.set(socket.id, socket)
                 this.onClientConnection(socket)
               }
@@ -326,44 +327,51 @@ export default class Server extends EventEmitter {
           // if(message.action === 'pong'){
           //   socket.active = true
           // }
-          if(data.action === 'proc'){
+          if(data.action === 'session'){
+            socket.wait = 2
             socket.stamp = null
+            this.sessionOffers(socket, this.matchOffers(socket))
+          } else if(data.action === 'proc'){
+            socket.wait = 3
+            socket.stamp = Date.now()
             if(this.clients.has(data.res)){
               const test = this.clients.get(data.res)
               if(test.ids.has(data.req) && !test.web.has(data.req)){
                 test.web.add(data.req)
                 test.ids.delete(data.req)
-                if(test.web.size < test.want){
-                  this.sessionOffers(test, this.matchOffers(test))
-                } else {
-                  test.close()
-                }
               }
             }
             if(socket.ids.has(data.res) && !socket.web.has(data.res)){
               socket.web.add(data.res)
               socket.ids.delete(data.res)
-              if(socket.web.size < socket.want){
-                this.sessionOffers(socket, this.matchOffers(socket))
-              } else {
-                socket.close()
-              }
             }
           }
           if(data.action === 'request'){
+            socket.wait = 2
             socket.stamp = null
             if(socket.ids.has(data.res) && this.clients.has(data.res)){
               const test = this.clients.get(data.res)
               test.send(JSON.stringify(data))
+              test.stopping.stop = false
+              test.stopping.stamp = null
+              test.wait = 2
               test.stamp = Date.now()
+            } else {
+              socket.send(JSON.stringify({action: 'interrupt', id: data.res}))
+              this.sessionOffers(socket, this.matchOffers(socket))
             }
           }
           if(data.action === 'response'){
-            socket.stamp = null
+            socket.wait = 3
+            socket.stamp = Date.now()
             if(socket.ids.has(data.req) && this.clients.has(data.req)){
               const test = this.clients.get(data.req)
               test.send(JSON.stringify(data))
+              test.wait = 2
               test.stamp = Date.now()
+            } else {
+              socket.send(JSON.stringify({action: 'interrupt', id: data.req}))
+              this.sessionOffers(socket, this.matchOffers(socket))
             }
           }
         } catch (err) {
@@ -378,25 +386,25 @@ export default class Server extends EventEmitter {
 
       socket.onClose = (code, reason) => {
         socket.onHandle()
-        if(this.offers.has(socket.hash)){
-          const testing = this.offers.get(socket.hash)
-          if(testing.has(socket.id)){
-            testing.delete(socket.id)
-          }
+        const offer = this.offers[socket.hash]
+        if(offer){
+          socket.offers.forEach((e) => {
+            if(offer.has(e)){
+              offer.delete(e)
+            }
+          })
         }
+        socket.offers.clear()
         socket.ids.forEach((id) => {
           if(this.clients.has(id)){
             const matched = this.clients.get(id)
             matched.send(JSON.stringify({action: 'interrupt', id: socket.id}))
             matched.ids.delete(socket.id)
-            if(this.offers.has(matched.hash)){
-              const matching = this.offers.get(matched.hash)
-              if(!matching.has(matched.id)){
-                matching.add(matched.id)
-              }
-            }
+            this.sessionOffers(matched, this.matchOffers(matched))
           }
         })
+        socket.ids.clear()
+        socket.web.clear()
         this.clients.delete(socket.id)
         this.emit('ev', `code: ${code} reason: ${reason.toString()}`)
       }
@@ -579,14 +587,20 @@ export default class Server extends EventEmitter {
     }
 
     matchOffers(socket){
-      if(this.offers.has(socket.hash)){
-        const testing = this.offers.get(socket.hash)
-        for(const test of testing){
-          if(socket.id === test || socket.ids.has(test) || socket.web.has(test)){
+      const testing = this.offers[socket.hash]
+      if(testing){
+        for(const test of testing.values()){
+          if(socket.id === test.user || socket.web.has(test.user) || socket.ids.has(test.user)){
             continue
           } else {
-            testing.delete(test)
-            return this.clients.get(test)
+            testing.delete(test.id)
+            if(this.clients.has(test.user)){
+              const chan = this.clients.get(test.user)
+              chan.offers.delete(test.id)
+              return chan
+            } else {
+              continue
+            }
           }
         }
       }
@@ -597,11 +611,14 @@ export default class Server extends EventEmitter {
         resSocket.ids.add(reqSocket.id)
         reqSocket.ids.add(resSocket.id)
         reqSocket.send(JSON.stringify({req: reqSocket.id, res: resSocket.id, action: 'init'}))
+        reqSocket.wait = 2
         reqSocket.stamp = Date.now()
       } else {
-        if(this.offers.has(reqSocket.hash)){
-          const waiting = this.offers.get(reqSocket.hash)
-          waiting.add(reqSocket.id)
+        const test = this.offers[reqSocket.hash]
+        if(test){
+          const waiting = crypto.randomUUID()
+          test.set(waiting, {id: waiting, user: reqSocket.id})
+          reqSocket.offers.add(waiting)
         }
       }
     }
@@ -646,10 +663,26 @@ export default class Server extends EventEmitter {
             //   test.active = false
             //   test.send(JSON.stringify({action: 'ping'}))
             // }
-            if(test.stamp){
-              if((Date.now() - test.stamp) > 30000){
-                test.close()
+            if(test.wait === 1){
+              if(test.stamp){
+                if((Date.now() - test.stamp) > 45000){
+                  test.close()
+                }
               }
+            } else if(test.wait === 2){
+              if(test.stamp){
+                if((Date.now() - test.stamp) > 30000){
+                  test.close()
+                }
+              }
+            } else if(test.wait === 3){
+              if(test.stamp){
+                if((Date.now() - test.stamp) > 45000){
+                  test.close()
+                }
+              }
+            } else {
+              continue
             }
           }
         }, 60000)
