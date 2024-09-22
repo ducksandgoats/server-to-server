@@ -352,8 +352,6 @@ export default class Server extends EventEmitter {
             if(socket.ids.has(data.res) && this.clients.has(data.res)){
               const test = this.clients.get(data.res)
               test.send(JSON.stringify(data))
-              test.stopping.stop = false
-              test.stopping.stamp = null
               test.wait = 2
               test.stamp = Date.now()
             } else {
